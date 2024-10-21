@@ -156,7 +156,6 @@ void printStocks()
         break;
     }
 
-    drawGraph(stocks, "Baking Powder", prevPrices[graphIndex]);
     cout << "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
 }
 
