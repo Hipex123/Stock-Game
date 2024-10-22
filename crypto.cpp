@@ -63,7 +63,7 @@ vector<char *> graph = {};
 int graphIndex = 0;
 int keys[20];
 
-const int TICK_SPEED = 100;
+const int TICK_SPEED = 5000;
 
 main()
 {
