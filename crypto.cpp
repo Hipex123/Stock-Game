@@ -207,11 +207,11 @@ void updatePrices(map<string, string> stockMod, map<string, float> &stocksDict)
     {
         float randomPriceChange[6] = {
             randomFloat(-0.5, 0.5),
+            randomFloat(-0.3, 0.5),
+            randomFloat(-0.5, 0.2),
             randomFloat(-0.1, 0.9),
             randomFloat(-0.9, 0.1),
-            randomFloat(-0.3, 0.5),
-            randomFloat(-0.5, 0.20),
-            randomFloat(-0.20, 0.5)};
+            randomFloat(-0.9, 0.9)};
 
         prevPrices[i] = stocksDict[pair.first];
 
