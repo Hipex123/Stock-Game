@@ -18,6 +18,7 @@ void updateMode(map<string, string> &stockMod);
 void updatePrices(map<string, string> stockMod, map<string, float> &stocksDict);
 void keyPresses();
 void drawGraph(map<string, float> info, const char *item, float prevPrice);
+void initKeys();
 
 float money = 1000;
 
@@ -50,20 +51,25 @@ string modes[6] = {"stable",
                    "fastFall",
                    "chaotic"};
 
-vector<string> stockNamesCopy;
+vector<string> stockNamesCopy(stockNames, stockNames + 10);
 
-map<string, float> stocks;
+map<string, float> stocks = {};
 map<string, string> stockModes;
 map<string, int> storage;
+map<int, string> mapKeyPresses;
 
 float prevPrices[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 vector<char *> graph = {};
 int graphIndex = 0;
+int keys[20];
 
-const int TICK_SPEED = 5000;
+const int TICK_SPEED = 100;
 
 main()
 {
+    std::sort(stockNamesCopy.begin(), stockNamesCopy.end());
+    initKeys();
+
     int ticksPassed = 0;
     srand(time(NULL));
 
@@ -72,11 +78,6 @@ main()
         stocks[stockNames[i]] = basePrices[i];
         storage[stockNames[i]] = 0;
     }
-    for (const auto &item : stockNames)
-    {
-        stockNamesCopy.push_back(item);
-    }
-    std::sort(stockNamesCopy.begin(), stockNamesCopy.end());
 
     std::thread keyObj(keyPresses);
     updateMode(stockModes);
@@ -91,10 +92,33 @@ main()
         {
             updateMode(stockModes);
         }
+
         updatePrices(stockModes, stocks);
     }
 
     return 0;
+}
+
+void initKeys()
+{
+    int sellKeys[10] = {81, 87, 69, 82, 84, 89, 85, 73, 79, 80};
+    string nameHolder;
+
+    for (struct { int i = 49;  int j = 0; } s; s.j < 10; s.i++, s.j++)
+    {
+        keys[s.j] = s.i;
+    }
+    keys[9] = 48;
+
+    for (int i = 10; i < 20; i++)
+    {
+        keys[i] = sellKeys[i - 10];
+    }
+
+    for (int i = 0; i < 20; i++)
+    {
+        mapKeyPresses[keys[i]] = stockNamesCopy[i % 10];
+    }
 }
 
 void printStocks()
@@ -103,14 +127,14 @@ void printStocks()
     cout << "--------------------------------------------------" << endl;
     cout << "STOCKS" << endl;
     cout << "--------------------------------------------------" << endl;
-    for (const auto &pair : stocks)
+    for (const auto pair : stocks)
     {
         cout << pair.first << "->" << pair.second << endl;
     }
     cout << "--------------------------------------------------" << endl;
     cout << "STORAGE" << endl;
     cout << "--------------------------------------------------" << endl;
-    for (const auto &pair : storage)
+    for (const auto pair : storage)
     {
         cout << pair.first << "->" << pair.second << endl;
     }
@@ -178,275 +202,98 @@ void updateMode(map<string, string> &stockMod)
 
 void updatePrices(map<string, string> stockMod, map<string, float> &stocksDict)
 {
-    int j = 0;
+    int i = 0;
     for (const auto &pair : stockMod)
     {
-        if (pair.second == modes[0])
+        float randomPriceChange[6] = {
+            randomFloat(-0.5, 0.5),
+            randomFloat(-0.1, 0.9),
+            randomFloat(-0.9, 0.1),
+            randomFloat(-0.3, 0.5),
+            randomFloat(-0.5, 0.20),
+            randomFloat(-0.20, 0.5)};
+
+        prevPrices[i] = stocksDict[pair.first];
+
+        for (int j = 0; j < 6; j++)
         {
-            prevPrices[j] = stocksDict[pair.first];
-            stocksDict[pair.first] += randomFloat(-0.5, 0.5);
-            if (stocksDict[pair.first] <= 0)
+            if (pair.second == modes[j])
             {
-                stocksDict[pair.first] += 0.9;
+                stocksDict[pair.first] += randomPriceChange[j];
             }
         }
-        if (pair.second == modes[1])
+
+        if (stocksDict[pair.first] <= 0)
         {
-            prevPrices[j] = stocksDict[pair.first];
-            stocksDict[pair.first] += randomFloat(-0.1, 0.9);
-            if (stocksDict[pair.first] <= 0)
-            {
-                stocksDict[pair.first] += 0.9;
-            }
+            stocksDict[pair.first] += 0.9;
         }
-        if (pair.second == modes[2])
-        {
-            prevPrices[j] = stocksDict[pair.first];
-            stocksDict[pair.first] += randomFloat(-0.9, 0.1);
-            if (stocksDict[pair.first] <= 0)
-            {
-                stocksDict[pair.first] += 0.9;
-            }
-        }
-        if (pair.second == modes[3])
-        {
-            prevPrices[j] = stocksDict[pair.first];
-            stocksDict[pair.first] += randomFloat(-0.3, 0.5);
-            if (stocksDict[pair.first] <= 0)
-            {
-                stocksDict[pair.first] += 0.9;
-            }
-        }
-        if (pair.second == modes[4])
-        {
-            prevPrices[j] = stocksDict[pair.first];
-            stocksDict[pair.first] += randomFloat(-0.5, 0.20);
-            if (stocksDict[pair.first] <= 0)
-            {
-                stocksDict[pair.first] += 0.9;
-            }
-        }
-        if (pair.second == modes[5])
-        {
-            prevPrices[j] = stocksDict[pair.first];
-            stocksDict[pair.first] += randomFloat(-0.20, 0.5);
-            if (stocksDict[pair.first] <= 0)
-            {
-                stocksDict[pair.first] += 0.9;
-            }
-        }
-        j++;
+
+        i++;
     }
 }
 
 void keyPresses()
 {
-    bool previousKeyboardState = false;
+    map<int, bool> previousKeyboardState;
+    bool cont;
+
     while (true)
     {
-        if (GetAsyncKeyState(49) & 0x8000)
+        cont = false;
+        for (const auto pair : mapKeyPresses)
         {
-            if (!previousKeyboardState)
+            if (GetAsyncKeyState(pair.first) & 0x8000)
             {
-                money -= stocks["Baking Powder"];
-                storage["Baking Powder"]++;
-                previousKeyboardState = true;
+                if (!previousKeyboardState[pair.first])
+                {
+                    cont = true;
+                    if (pair.first >= 48 && pair.first <= 57 && money - stocks[pair.second] >= 0)
+                    {
+                        money -= stocks[pair.second];
+                        storage[pair.second]++;
+                    }
+                    else if ((pair.first < 48 || pair.first > 57) && storage[pair.second] > 0)
+                    {
+                        money += stocks[pair.second];
+                        storage[pair.second]--;
+                    }
+                    previousKeyboardState[pair.first] = true;
+                }
+            }
+            else
+            {
+                previousKeyboardState[pair.first] = false;
             }
         }
-        else if (GetAsyncKeyState(50) & 0x8000)
+
+        if (GetAsyncKeyState(65) & 0x8000)
         {
-            if (!previousKeyboardState)
-            {
-                money -= stocks["Bitcoin"];
-                storage["Bitcoin"]++;
-                previousKeyboardState = true;
-            }
-        }
-        else if (GetAsyncKeyState(51) & 0x8000)
-        {
-            if (!previousKeyboardState)
-            {
-                money -= stocks["Dio Brando"];
-                storage["Dio Brando"]++;
-                previousKeyboardState = true;
-            }
-        }
-        else if (GetAsyncKeyState(52) & 0x8000)
-        {
-            if (!previousKeyboardState)
-            {
-                money -= stocks["Eggs"];
-                storage["Eggs"]++;
-                previousKeyboardState = true;
-            }
-        }
-        else if (GetAsyncKeyState(53) & 0x8000)
-        {
-            if (!previousKeyboardState)
-            {
-                money -= stocks["Flour"];
-                storage["Flour"]++;
-                previousKeyboardState = true;
-            }
-        }
-        else if (GetAsyncKeyState(54) & 0x8000)
-        {
-            if (!previousKeyboardState)
-            {
-                money -= stocks["Gunpowder"];
-                storage["Gunpowder"]++;
-                previousKeyboardState = true;
-            }
-        }
-        else if (GetAsyncKeyState(55) & 0x8000)
-        {
-            if (!previousKeyboardState)
-            {
-                money -= stocks["Milk"];
-                storage["Milk"]++;
-                previousKeyboardState = true;
-            }
-        }
-        else if (GetAsyncKeyState(56) & 0x8000)
-        {
-            if (!previousKeyboardState)
-            {
-                money -= stocks["Pookie"];
-                storage["Pookie"]++;
-                previousKeyboardState = true;
-            }
-        }
-        else if (GetAsyncKeyState(57) & 0x8000)
-        {
-            if (!previousKeyboardState)
-            {
-                money -= stocks["Tim"];
-                storage["Tim"]++;
-                previousKeyboardState = true;
-            }
-        }
-        else if (GetAsyncKeyState(48) & 0x8000)
-        {
-            if (!previousKeyboardState)
-            {
-                money -= stocks["White Phosphorus"];
-                storage["White Phosphorus"]++;
-                previousKeyboardState = true;
-            }
-        }
-        else if (GetAsyncKeyState(81) & 0x8000 && storage["Baking Powder"] > 0)
-        {
-            if (!previousKeyboardState)
-            {
-                money += stocks["Baking Powder"];
-                storage["Baking Powder"]--;
-                previousKeyboardState = true;
-            }
-        }
-        else if (GetAsyncKeyState(87) & 0x8000 && storage["Bitcoin"] > 0)
-        {
-            if (!previousKeyboardState)
-            {
-                money += stocks["Bitcoin"];
-                storage["Bitcoin"]--;
-                previousKeyboardState = true;
-            }
-        }
-        else if (GetAsyncKeyState(69) & 0x8000 && storage["Dio Brando"] > 0)
-        {
-            if (!previousKeyboardState)
-            {
-                money += stocks["Dio Brando"];
-                storage["Dio Brando"]--;
-                previousKeyboardState = true;
-            }
-        }
-        else if (GetAsyncKeyState(82) & 0x8000 && storage["Eggs"] > 0)
-        {
-            if (!previousKeyboardState)
-            {
-                money += stocks["Eggs"];
-                storage["Eggs"]--;
-                previousKeyboardState = true;
-            }
-        }
-        else if (GetAsyncKeyState(84) & 0x8000 && storage["Flour"] > 0)
-        {
-            if (!previousKeyboardState)
-            {
-                money += stocks["Flour"];
-                storage["Flour"]--;
-                previousKeyboardState = true;
-            }
-        }
-        else if (GetAsyncKeyState(89) & 0x8000 && storage["Gunpowder"] > 0)
-        {
-            if (!previousKeyboardState)
-            {
-                money += stocks["Gunpowder"];
-                storage["Gunpowder"]--;
-                previousKeyboardState = true;
-            }
-        }
-        else if (GetAsyncKeyState(85) & 0x8000 && storage["Milk"] > 0)
-        {
-            if (!previousKeyboardState)
-            {
-                money += stocks["Milk"];
-                storage["Milk"]--;
-                previousKeyboardState = true;
-            }
-        }
-        else if (GetAsyncKeyState(73) & 0x8000 && storage["Pookie"] > 0)
-        {
-            if (!previousKeyboardState)
-            {
-                money += stocks["Pookie"];
-                storage["Pookie"]--;
-                previousKeyboardState = true;
-            }
-        }
-        else if (GetAsyncKeyState(79) & 0x8000 && storage["Tim"] > 0)
-        {
-            if (!previousKeyboardState)
-            {
-                money += stocks["Tim"];
-                storage["Tim"]--;
-                previousKeyboardState = true;
-            }
-        }
-        else if (GetAsyncKeyState(80) & 0x8000 && storage["White Phosphorus"] > 0)
-        {
-            if (!previousKeyboardState)
-            {
-                money += stocks["White Phosphorus"];
-                storage["White Phosphorus"]--;
-                previousKeyboardState = true;
-            }
-        }
-        else if (GetAsyncKeyState(65) & 0x8000)
-        {
-            if (!previousKeyboardState && graphIndex >= 1)
+            if (!previousKeyboardState[65] && graphIndex >= 1)
             {
                 graphIndex--;
                 graph.clear();
                 system("cls");
-                previousKeyboardState = true;
-            }
-        }
-        else if (GetAsyncKeyState(68) & 0x8000)
-        {
-            if (!previousKeyboardState && graphIndex < 9)
-            {
-                graphIndex++;
-                graph.clear();
-                system("cls");
-                previousKeyboardState = true;
+                previousKeyboardState[65] = true;
             }
         }
         else
         {
-            previousKeyboardState = false;
+            previousKeyboardState[65] = false;
+        }
+
+        if (GetAsyncKeyState(68) & 0x8000)
+        {
+            if (!previousKeyboardState[68] && graphIndex < 9)
+            {
+                graphIndex++;
+                graph.clear();
+                system("cls");
+                previousKeyboardState[68] = true;
+            }
+        }
+        else
+        {
+            previousKeyboardState[68] = false;
         }
     }
 }
